@@ -396,7 +396,7 @@ ggplot(sim_df, aes(x = t, y = cdf))+
   geom_vline(xintercept = main_test$statistic, colour = "#FF2277", size = 3)
 
 
-Pvalue.norm.sim()
+Pvalue.norm.sim() 
 
 
 #--------------------------------------CATHODAL REP MEASURMENT ANOVA-------------------------------------------
