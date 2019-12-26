@@ -5,7 +5,6 @@ install.packages('effsize')
 install.packages("tidyr")
 install.packages('plotly')
 install.packages('TeachingDemos')
-
 install.packages("pwr")
 library(data.table)
 library(ez)
@@ -183,7 +182,7 @@ length_cat <- length(unique(cathodal_dif$Sub, incomparables = FALSE))
 length_an <- length(unique(anodal_dif$Sub, incomparables = FALSE))
 
 
-#----------------ANOVA GS for difference--------
+#----------------------------------ANOVA GAIN SCORE for difference----------------------------------main(1)-----
 
 #ANOVA for cathodal
 
@@ -200,7 +199,7 @@ summary(ANOVA_cathodal_gs$aov)
 # summary(ANOVA_cathodal_gs$aov)
 
 
-#------------------------post hoc-----------------
+#------------------------post hoc--------------------------------
 
 
 
@@ -218,7 +217,7 @@ summary(ANOVA_cathodal_gs$aov)
 #                 p.adjust.method = 'bonf') 
 
 
-# ---------  post hoc interaction Type:Choice (it's significant)-----------
+# ---------  post hoc interaction Type:Choice (it's significant)------------------------------------main(2)-----
 
 cathodal_dif_interaction <- cathodal_dif
 cathodal_dif_interaction[, 'Type_Choice'] <-
@@ -248,7 +247,7 @@ pairwTTest_tvalues <-
 
 
 
-# --------- post hoc interaction Stimulation:Type:Choice (it's not significant but interesting)-----------------
+# --------- post hoc interaction Stimulation:Type:Choice (it's not significant but interesting)--------main(3.1)---------
 
 
 cathodal_dif_interaction2 <- cathodal_dif
@@ -256,6 +255,8 @@ cathodal_dif_interaction2[, 'Stimulation_Type_Choice'] <-
   paste0(cathodal_dif_interaction2[, Stimulation], '_', cathodal_dif_interaction2[, Type], '_', cathodal_dif_interaction2[, Choice])
 
 View(cathodal_dif_interaction2)
+
+#----------looking at differnt corrections-------------------------------
 
 #bonferonni correction
 
@@ -309,7 +310,7 @@ pwtt_interaction2_pv_none_tvalues <- pairwise.t.test.with.t.and.df(x = cathodal_
 str(pwtt_interaction2_pv_none_tvalues)
 View(pwtt_interaction2_pv_none_tvalues$t.value)
 
-#false discovery rate (fdr) correction
+#false discovery rate (fdr) correction-------------------------------------------------------------main(3.2)------
 
 pwtt_interaction2_fdr <- pairwise.t.test(
   cathodal_dif_interaction2$Difference,
@@ -362,7 +363,7 @@ View(pwtt_interaction2_pv_fdr_tvalues$t.value)
 # pwtt_interaction2_pv_BY <- as.data.table(pwtt_interaction2_BY[3], keep.rownames=T)
 # View(pwtt_interaction2_pv_BY)
 
-#----------------t tests for difference in difficult rejected--------
+#----------------t tests for difference in difficult rejected for checking--------
 
 #t test  for cathodal
 
@@ -398,6 +399,9 @@ ggplot(sim_df, aes(x = t, y = cdf))+
 
 Pvalue.norm.sim() 
 
+#PLOT WITH p VALUES AND NUMBER OF SUBJECTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#don't remember why
+
 
 #--------------------------------------CATHODAL REP MEASURMENT ANOVA-------------------------------------------
 View(cathodal)
@@ -431,7 +435,7 @@ View(pwtt_interaction_rm)
 
 
 
-#--------------------------------------CATHODAL REP MEASURMENT ANOVA by different choice factor-------------------------------------------
+#----------------------CATHODAL REP MEASURMENT ANOVA by different choice factor (as Marco did)-----------------------------------------
 
 cathodal_difficult <- cathodal[Type == 'Difficult', ]
 
@@ -465,5 +469,59 @@ cathodal_interaction_rm[, 'Stimulation_Type_Choice_Rating'] <-
 
 #----------------------------------CATHODAL GAIN SCORE ANOVA by different choice factor---------------------------
 
+# for checking is gain score ANOVA differ from the initial RM Marco by factors
+
+ANOVA_cathodal_gs_dif <- ezANOVA(data = cathodal_dif[Type == 'Difficult', ], dv = Difference, wid = Sub,
+                                 within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_cathodal_gs_dif
+#interaction for only difficult choices is significant
+
+ANOVA_cathodal_gs_easy <- ezANOVA(data = cathodal_dif[Type == 'Easy', ], dv = Difference, wid = Sub,
+                                 within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_cathodal_gs_easy
+
+ANOVA_cathodal_gs_computer <- ezANOVA(data = cathodal_dif[Type == 'Computer', ], dv = Difference, wid = Sub,
+                                  within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_cathodal_gs_computer
+
+
+ANOVA_cathodal_gs_PostEx <- ezANOVA(data = cathodal_dif[Type == 'Post-Ex', ], dv = Difference, wid = Sub,
+                                      within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_cathodal_gs_PostEx
+
+
+
+#------------------------------------plots fpr cathodal------------------------------------------main(4)-------
+
+
+cathodal_dif_not_postex <- subset(cathodal_dif, Type != "Post-Ex")
+
+# for reordering boxes
+cogdis_dif_plot <- cathodal_dif_not_postex
+
+cogdis_dif_plot[Type == 'Computer', 'Type'] <- 
+  paste0('F', cogdis_dif_plot[Type == 'Computer', Type]) 
+
+cogdis_dif_plot[Choice == 'Selected', 'Type'] <- 
+  paste0('S_', cogdis_dif_plot[Choice == 'Selected', Type])  
+cogdis_dif_plot[Choice == 'Rejected', 'Type'] <- 
+  paste0('R_', cogdis_dif_plot[Choice == 'Rejected', Type]) 
+
+ggplot(data = cogdis_dif_plot, aes(x=Type,y = Difference, fill = Stimulation)) +
+  geom_boxplot() +
+  scale_y_continuous()
+
+
+# ggplot(data = cogdis_dif_plot, aes(x=Type,y = Difference, fill = Stimulation)) +
+#   geom_bar(data = cogdis_dif_plot, position=position_dodge(), stat="identity") +
+#   scale_y_continuous(breaks = seq(-2,0.75,0.25)) +
+# 
+#   geom_errorbar(aes(ymin=soa0-SEm0, ymax=soa0+SEm0),
+#                 size=.3,    # Thinner lines
+#                 width=.2,
+#                 position=position_dodge(.9)) +
+# 
+#   scale_x_discrete(limits=c("S_Difficult", "S_Easy", "S_Computer",
+#                             "R_Difficult", "R_Easy", "R_Computer"))
 
 
