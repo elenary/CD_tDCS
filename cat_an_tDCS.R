@@ -8,6 +8,9 @@ install.packages('TeachingDemos')
 install.packages("pwr")
 install.packages("psychReport")
 install.packages("viridis")
+install.packages('HH')
+install.packages('rstatix')
+
 
 # install.packages("rlang")
 
@@ -23,6 +26,9 @@ library(psychReport)
 library(rColorBrewer, lib.loc="/Library/Frameworks/R.framework/Versions/3.5/Resources/library")
 # library(reshape2)
 library(viridis)
+library('HH')
+library(reshape2)
+library(rstatix)
 
 # locale
 
@@ -101,8 +107,9 @@ View(anodal_dif)
 # anodal_dif_short <- subset(anodal_dif, Type != "Post-Ex")
 
 length_cat <- length(unique(cathodal_dif$Sub, incomparables = FALSE))
+length_cat
 length_an <- length(unique(anodal_dif$Sub, incomparables = FALSE))
-
+length_an
 #----   function for extracting t values and DFs-----------------
 
 pairwise.t.test.with.t.and.df <- function (x, g, p.adjust.method = p.adjust.methods, pool.sd = !paired, 
@@ -236,13 +243,13 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
   #result
   list(gs_ANOVA = gs_ANOVA_full,
        residuals = gs_ANOVA_resid,
-       areResidualsNormal = gs_ANOVA_AreResidNormal,
-       newDTwithInteraction = dataset_interaction)
+       areResidualsNormal = gs_ANOVA_AreResidNormal)
+      # newDTwithInteraction = dataset_interaction)
   
 }
 
 
-#----   CATHODAL GAIN SCORE ANOVA for difference    ---------
+#----   CATHODAL 2x4x2 GAIN SCORE ANOVA for difference    ---------
 
 gs_ANOVA_cathodal <- gs_ANOVA_full_and_posthoc(cathodal_dif, 3, Type, Choice)
 gs_ANOVA_cathodal$gs_ANOVA
@@ -251,7 +258,7 @@ gs_ANOVA_cathodal$residuals
 hist(gs_ANOVA_cathodal$residuals) 
 
 
-#----   post hoc interaction Type:Choice (it's significant)   ------------------------------------main(2)-----
+#----   post hoc for cathodal interaction Type:Choice    ------------------------------------
 
 cathodal_dif_interaction <- cathodal_dif
 cathodal_dif_interaction[, 'Type_Choice'] <-
@@ -288,8 +295,7 @@ pairwTTest_fdr_gs_withtvalues$dfs
 View(as.data.table(pairwTTest_fdr_gs_withtvalues$dfs, keep.rownames = T))
 
 
-#----   post hoc interaction Stimulation:Type:Choice (it's not significant but interesting)--------main(3.1)---------
-
+#  post hoc interaction Stimulation:Type:Choice (it's not significant but interesting)
 
 cathodal_dif_interaction2 <- cathodal_dif
 cathodal_dif_interaction2[, 'Stimulation_Type_Choice'] <-
@@ -297,47 +303,33 @@ cathodal_dif_interaction2[, 'Stimulation_Type_Choice'] <-
 
 View(cathodal_dif_interaction2)
 
-#--   false discovery rate (fdr) correction-------------------------------------------
-
-# pwtt_interaction2_fdr <- pairwise.t.test(
-#   cathodal_dif_interaction2$Difference,
-#   g = cathodal_dif_interaction2$Stimulation_Type_Choice,
-#   p.adjust.method = 'fdr',
-#   paired = T
-# )
-# 
-# pwtt_interaction2_pv_fdr <- as.data.table(pwtt_interaction2_fdr[3], keep.rownames=T)
-# View(pwtt_interaction2_pv_fdr)
-
-pwtt_interaction2_fdr <- pairwise.t.test.with.t.and.df(x = cathodal_dif_interaction2$Difference, 
-                                                                  g = cathodal_dif_interaction2$Stimulation_Type_Choice, 
-                                                                  p.adjust.method = 'fdr', paired = T) 
-
-View(pwtt_interaction2_pv_fdr_tvalues$p.value)
-View(pwtt_interaction2_pv_fdr_tvalues$t.value)
-
-
 
 
 #----   t tests for difference in difficult rejected for checking--------
 
-#t test  for cathodal
+#t test  for cathodal, cohens'D and stat power
 
 cathodal_dif_sham_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "sham" & Choice == 'Rejected', Difference]
 cathodal_dif_tDCS_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+# 
+# cohensD <- cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
+# cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
+# sdpool <- sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
+# sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
+
+cohen.d(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej, paired = T, hedges.correction = T)
+cohen.d(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej, paired = T, hedges.correction = F)
 
 
-
-cohensD <- cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
-cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
-sdpool <- sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
-sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
-
+citation("effsize")
 
 t.test(x = cathodal_dif_sham_rej,  
        y = cathodal_dif_tDCS_rej,  
        paired = T, var.equal = FALSE,
        conf.level = 0.95, alternative = "less")
+
+
+
 
 main_test <- t.test(x = cathodal_dif_sham_rej,  
        y = cathodal_dif_tDCS_rej,  
@@ -359,10 +351,11 @@ Pvalue.norm.sim()
 #don't remember why
 
 
+#stat power 
 
+pwr.t.test(n = 17, d=0.29, sig.level = 0.05)
 
-
-#----   CATHODAL GAIN SCORE ANOVA by different choice factor---------------------------
+#----   CATHODAL 2x2 GAIN SCORE ANOVA by different choice factor---------------------------
 
 # for checking is gain score ANOVA differ from the initial RM Marco by factors
 
@@ -374,19 +367,21 @@ ANOVA_cathodal_gs_dif$ANOVA
 
 ANOVA_cathodal_gs_easy <- ezANOVA(data = cathodal_dif[Type == 'Easy', ], dv = Difference, wid = Sub,
                                  within = .(Stimulation, Choice), return_aov = T, type = 3)
-ANOVA_cathodal_gs_easy
+ANOVA_cathodal_gs_easy$ANOVA
 
 ANOVA_cathodal_gs_computer <- ezANOVA(data = cathodal_dif[Type == 'Computer', ], dv = Difference, wid = Sub,
                                   within = .(Stimulation, Choice), return_aov = T, type = 3)
-ANOVA_cathodal_gs_computer
+ANOVA_cathodal_gs_computer$ANOVA
 
 
 ANOVA_cathodal_gs_PostEx <- ezANOVA(data = cathodal_dif[Type == 'Post-Ex', ], dv = Difference, wid = Sub,
                                       within = .(Stimulation, Choice), return_aov = T, type = 3)
-ANOVA_cathodal_gs_PostEx
+ANOVA_cathodal_gs_PostEx$ANOVA
 
 
-#----   POST HOC Stimulation: Choice FOR GAIN SCORE ANOVA by different choice factor-----------------
+#----   POST HOC Stimulation:Choice FOR GAIN SCORE ANOVA by different choice type-----------------
+
+#difficult choices (target)
 
 cathodal_dif_interaction3 <- cathodal_dif[Type == 'Difficult', ]
 cathodal_dif_interaction3[, 'Stim_Choice'] <-
@@ -400,9 +395,7 @@ View(cathodal_dif_interaction3)
 #   p.adjust.method = 'fdr',
 #   paired = T
 # )
-# 
 # pwtt_interaction_fdr_gs_diff
-
 # View(as.data.table(pwtt_interaction_fdr_gs[3], keep.rownames=T))
 
 
@@ -417,26 +410,51 @@ pairwTTest_fdr_gs_difficult <-
 
 
 pairwTTest_fdr_gs_difficult$p.value
-View(as.data.table(pairwTTest_fdr_gs_withtvalues$p.value, keep.rownames = T))
-# str(pairwTTest_fdr_gs_withtvalues)
-pairwTTest_fdr_gs_withtvalues
-pairwTTest_fdr_gs_withtvalues$t.value
-View(as.data.table(pairwTTest_fdr_gs_withtvalues$t.value, keep.rownames = T))
-pairwTTest_fdr_gs_withtvalues$dfs
-View(as.data.table(pairwTTest_fdr_gs_withtvalues$dfs, keep.rownames = T))
+View(pairwTTest_fdr_gs_difficult$p.value)
+pairwTTest_fdr_gs_difficult$t.value
+View(pairwTTest_fdr_gs_difficult$t.value)
+pairwTTest_fdr_gs_difficult$dfs
 
 
 
-#----   plots for cathodal------------------------------------------main(4)-------
+#easy choices
+
+cathodal_dif_interaction4 <- cathodal_dif[Type == 'Easy', ]
+cathodal_dif_interaction4[, 'Stim_Choice'] <-
+  paste0(cathodal_dif_interaction4[, Stimulation], '_', cathodal_dif_interaction4[, Choice])
+View(cathodal_dif_interaction4)
 
 
-#--plot for anova for visualization searate factors
+pairwTTest_fdr_gs_easy<-
+  pairwise.t.test.with.t.and.df(
+    x = cathodal_dif_interaction4$Difference,
+    g = cathodal_dif_interaction4$Stim_Choice,
+    p.adjust.method = 'fdr',
+    paired = T
+  ) 
+
+
+pairwTTest_fdr_gs_easy$p.value
+View(pairwTTest_fdr_gs_easy$p.value)
+pairwTTest_fdr_gs_easy$t.value
+View(pairwTTest_fdr_gs_easy$t.value)
+pairwTTest_fdr_gs_easy$dfs
+
+
+
+
+#----   plots for cathodal part------------------------------------------
+
+
+#--plot for full anova for visualization searate factors
 
 ggplot(data = cathodal_dif, aes(x=Stimulation,y = Difference, fill = Stimulation)) +
   geom_boxplot(outlier.size=-1) +
   theme_minimal() +
   scale_fill_viridis(discrete = TRUE, option = "D") +
   scale_y_continuous(breaks = seq(-2.5, 1.5, 0.5), limits=c(-2.5, 1.5))
+
+
 
 ggplot(data = cathodal_dif, aes(x=Type,y = Difference, fill = Type)) +
   geom_boxplot(outlier.size=-1) +
@@ -460,15 +478,29 @@ cathodal_dif_plot[Choice == 'Rejected', 'Type'] <-
   paste0('R_', cathodal_dif_plot[Choice == 'Rejected', Type]) 
 
 
-
-
 ggplot(data = cathodal_dif_plot, aes(x=Type,y = Difference, fill = Stimulation)) +
   geom_boxplot(outlier.size=-1) +
   scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25), limits=c(-2.5, 1.5))
 
 
+ggplot(data = cathodal_dif_plot, aes(x=Type,y = Difference, fill = Type)) +
+  geom_boxplot(outlier.size=-1) +
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25), limits=c(-2.5, 1.5)) +
+  theme_minimal() 
 
-#----
+viridis(4)
+
+# plot for 2x2 ANOVA only for difficult choices
+
+# View(cathodal_dif[Type == "Difficult",])
+
+ggplot(data = cathodal_dif[Type == "Difficult",], aes(x=Choice,y = Difference, fill = Stimulation)) +
+  geom_boxplot(outlier.size=-1) +
+  theme_minimal() +
+  scale_fill_viridis(discrete = TRUE, option = "D") +
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25), limits=c(-2.5, 1.5))
+
+
 # ggplot(data = cogdis_dif_plot, aes(x=Type,y = Difference, fill = Stimulation)) +
 #   geom_bar(data = cogdis_dif_plot, position=position_dodge(), stat="identity") +
 #   scale_y_continuous(breaks = seq(-2,0.75,0.25)) +
@@ -499,23 +531,260 @@ ggplot(data = cathodal_dif, aes(x=Choice,y = Difference, fill = Choice)) +
 
 
 
+
+
+
+#----   ANODAL GAIN SCORE 2x4x2 ANOVA FOR DIFFERENCE--------------------------------------
+
+
+gs_ANOVA_anodal <- gs_ANOVA_full_and_posthoc(anodal_dif, 3, Type, Choice)
+gs_ANOVA_anodal$gs_ANOVA
+gs_ANOVA_anodal$gs_ANOVA$ANOVA
+gs_ANOVA_anodal$residuals
+gs_ANOVA_anodal$areResidualsNormal 
+hist(gs_ANOVA_anodal$residuals) 
+
+
+#----   POST HOC for anodal interaction Type:Choice    ------------------------------------
+
+anodal_dif_interaction <- anodal_dif
+anodal_dif_interaction[, 'Type_Choice'] <-
+  paste0(anodal_dif_interaction[, Type], '_', anodal_dif_interaction[, Choice])
+
+View(anodal_dif_interaction)
+
+# pwtt_interaction_fdr_gs <- pairwise.t.test(
+#   cathodal_dif_interaction$Difference,
+#   g = cathodal_dif_interaction$Type_Choice,
+#   p.adjust.method = 'fdr',
+#   paired = T
+# )
+# 
+# pwtt_interaction_fdr_gs
+
+
+pairwTTest_fdr_gs_anodal <-
+  pairwise.t.test.with.t.and.df(
+    x = anodal_dif_interaction$Difference,
+    g = anodal_dif_interaction$Type_Choice,
+    p.adjust.method = 'fdr',
+    paired = T
+  ) 
+
+pairwTTest_fdr_gs_anodal
+pairwTTest_fdr_gs_anodal$p.value
+View(pairwTTest_fdr_gs_anodal$p.value)
+# str(pairwTTest_fdr_gs_withtvalues)
+pairwTTest_fdr_gs_anodal$t.value
+View(pairwTTest_fdr_gs_anodal$t.value)
+pairwTTest_fdr_gs_anodal$dfs
+
+
+
+#  post hoc interaction Stimulation:Type:Choice (it's not significant but interesting)
+
+anodal_dif_interaction_an2 <- anodal_dif
+anodal_dif_interaction_an2[, 'Stimulation_Type_Choice'] <-
+  paste0(anodal_dif_interaction_an2[, Stimulation], '_', anodal_dif_interaction_an2[, Type], '_', anodal_dif_interaction_an2[, Choice])
+
+View(anodal_dif_interaction_an2)
+
+
+#----   ANODAL 2x2 GAIN SCORE ANOVA by different choice factor---------------------------
+
+# for checking is gain score ANOVA differ from the initial RM Marco by factors
+
+ANOVA_anodal_gs_dif <- ezANOVA(data = anodal_dif[Type == 'Difficult', ], dv = Difference, wid = Sub,
+                                 within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_anodal_gs_dif$ANOVA
+ANOVA_cathodal_gs_dif$ANOVA
+
+#interaction for only difficult choices is significant
+
+ANOVA_anodal_gs_easy <- ezANOVA(data = anodal_dif[Type == 'Easy', ], dv = Difference, wid = Sub,
+                                  within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_anodal_gs_easy$ANOVA
+
+ANOVA_anodal_gs_computer <- ezANOVA(data = anodal_dif[Type == 'Computer', ], dv = Difference, wid = Sub,
+                                      within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_anodal_gs_computer$ANOVA
+
+
+ANOVA_anodal_gs_PostEx <- ezANOVA(data = anodal_dif[Type == 'Post-Ex', ], dv = Difference, wid = Sub,
+                                    within = .(Stimulation, Choice), return_aov = T, type = 3)
+ANOVA_anodal_gs_PostEx$ANOVA
+
+
+#----   POST HOC Choice FOR GAIN SCORE ANOVA by different choice type-----------------
+
+#difficult choices (target)
+
+
+pairwTTest_fdr_gs_anodal_difficult <-
+  pairwise.t.test.with.t.and.df(
+    x = anodal_dif[Type == 'Difficult', ]$Difference,
+    g = anodal_dif[Type == 'Difficult', ]$Choice,
+    p.adjust.method = 'fdr',
+    paired = T
+  ) 
+
+
+pairwTTest_fdr_gs_anodal_difficult$p.value
+View(pairwTTest_fdr_gs_anodal_difficult$p.value)
+pairwTTest_fdr_gs_anodal_difficult$t.value
+View(pairwTTest_fdr_gs_anodal_difficult$t.value)
+pairwTTest_fdr_gs_anodal_difficult$dfs
+
+#---    t tests for difference in difficult rejected for checking--------------
+
+anodal_dif_sham_rej <- anodal_dif[Type == "Difficult" & Stimulation == "sham" & Choice == 'Rejected', Difference]
+anodal_dif_tDCS_rej <- anodal_dif[Type == "Difficult" & Stimulation == "tDCS" & Choice == 'Rejected', Difference]
+
+
+
+cohensD <- cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
+cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
+sdpool <- sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
+sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
+
+
+t.test(x = anodal_dif_tDCS_rej,  
+       y = anodal_dif_sham_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "less")
+
+
+
 #----   plots anodal------------------
 
+#--plot for full anova for visualization searate factors
+
+# different stimulation
+ggplot(data = anodal_dif, aes(x = Stimulation, y = Difference, fill = Stimulation)) +
+  geom_boxplot(outlier.size = -1) +
+  theme_minimal() +
+  scale_fill_viridis(discrete = TRUE, option = "D") +
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.5),
+                     limits = c(-2.5, 1.5))
+
+# different type of choice
+ggplot(data = anodal_dif, aes(x = Type, y = Difference, fill = Type)) +
+  geom_boxplot(outlier.size = -1) +
+  theme_minimal() +
+  scale_fill_viridis(discrete = TRUE, option = "D") +
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25),
+                     limits = c(-2.5, 1.5))
+
+
+# plot for 2x2 ANOVA only for difficult choices
+
+
+ggplot(data = anodal_dif[Type == "Difficult",], aes(x=Choice,y = Difference, fill = Stimulation)) +
+  geom_boxplot(outlier.size=-1) +
+  theme_minimal() +
+  
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25), limits=c(-2.5, 1.5))
+
+
+
+# final plot with all conditions
 anodal_dif_plot <- anodal_dif
 
-anodal_dif_plot[Type == 'Computer', 'Type'] <- 
-  paste0('F', anodal_dif_plot[Type == 'Computer', Type]) 
+anodal_dif_plot[Type == 'Computer', 'Type'] <-
+  paste0('F', anodal_dif_plot[Type == 'Computer', Type])
 
-anodal_dif_plot[Choice == 'Selected', 'Type'] <- 
-  paste0('S_', anodal_dif_plot[Choice == 'Selected', Type])  
-anodal_dif_plot[Choice == 'Rejected', 'Type'] <- 
-  paste0('R_', anodal_dif_plot[Choice == 'Rejected', Type]) 
+anodal_dif_plot[Choice == 'Selected', 'Type'] <-
+  paste0('S_', anodal_dif_plot[Choice == 'Selected', Type])
+anodal_dif_plot[Choice == 'Rejected', 'Type'] <-
+  paste0('R_', anodal_dif_plot[Choice == 'Rejected', Type])
 
 
-ggplot(data = anodal_dif_plot, aes(x=Type,y = Difference, fill = Stimulation)) +
-  geom_boxplot() +
+ggplot(data = anodal_dif_plot, aes(x = Type, y = Difference, fill = Stimulation)) +
+  geom_boxplot(outlier.size = -1) +
   theme_minimal() +
-  scale_y_continuous()
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25),
+                     limits = c(-2.5, 1.5))
+
+
+
+viridis(4)
+
+
+#----   plots for summary of two experiments------------------
+
+
+cathodal_dif_temp <- cathodal_dif[order(Sub, Stimulation),]
+cathodal_dif_temp[Stimulation == 'sham', 'Stimulation'] <-
+  paste0(cathodal_dif_temp[Stimulation == 'sham', Stimulation], sep='_', 'cat')
+
+
+anodal_dif_temp <- anodal_dif[order(Sub, Stimulation),]
+# anodal_dif_temp[, 'Sub'] <- paste0(anodal_dif_temp[, Sub], sep='_', 'an')
+anodal_dif_temp[, 'Stimulation'] <-
+  paste0(anodal_dif_temp[, Stimulation], sep='_', 'an')
+
+View(cathodal_dif_temp)
+View(anodal_dif_temp)
+
+# colnames(cathodal_dif_temp)
+# names(cathodal_dif_temp)[names(cathodal_dif_temp) == 'Stimulation']
+
+cat_an_dif_temp <- merge(cathodal_dif_temp, anodal_dif_temp, 
+                          all.x = T, all.y = T)
+View(cat_an_dif_temp)
+
+cat_an_plot <- cat_an_dif_temp[Type == "Difficult" | Type == "Easy", ]
+# View(cat_an_dif[Choice == 'Rejected' & Stimulation != 'sham_an' |  Stimulation != 'sham_cat')
+# 
+View(cat_an_plot)
+
+cat_an_plot[Choice == 'Selected', 'Type'] <-
+  paste0('S_', cat_an_plot[Choice == 'Selected', Type])
+cat_an_plot[Choice == 'Rejected', 'Type'] <-
+  paste0('R_', cat_an_plot[Choice == 'Rejected', Type])
+
+cat_an_plot[Stimulation == 'sham_cat', 'Stimulation'] <-
+  paste0('1_', cat_an_plot[Stimulation == 'sham_cat', Stimulation])
+cat_an_plot[Stimulation == 'tDCS_cat', 'Stimulation'] <-
+  paste0('2_', cat_an_plot[Stimulation == 'tDCS_cat', Stimulation])
+cat_an_plot[Stimulation == 'sham_an', 'Stimulation'] <-
+  paste0('3_', cat_an_plot[Stimulation == 'sham_an', Stimulation])
+cat_an_plot[Stimulation == 'tDCS_an', 'Stimulation'] <-
+  paste0('4_', cat_an_plot[Stimulation == 'tDCS_an', Stimulation])
+
+
+cat_an_plot2 <- cat_an_plot[Type != 'S_Easy', ]
+
+
+ggplot(data = cat_an_plot2, aes(x = Type, y = Difference, fill = Stimulation)) +
+  geom_boxplot(outlier.size = -1) +
+  theme_minimal() +
+  scale_y_continuous(breaks = seq(-2.5, 1.5, 0.25),
+                     limits = c(-2.5, 1.5))
+
+
+#----   t tests for comparisson two experiments------------------
+
+
+
+t.test(x = cat_an_plot[Type == "R_Difficult" & Stimulation == "1_sham_cat", Difference],  
+       y = cat_an_plot[Type == "R_Difficult" & Stimulation == "3_sham_an", Difference],  
+       paired = F, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
+
+
+t.test(x = cat_an_plot[Type == "R_Difficult" & Stimulation == "2_tDCS_cat", Difference],  
+       y = cat_an_plot[Type == "R_Difficult" & Stimulation == "4_tDCS_an", Difference],  
+       paired = F, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
+
+
+t.test(x = cat_an_plot[Type == "R_Difficult" & Stimulation == "1_sham_cat", Difference],  
+       y = cat_an_plot[Type == "R_Difficult" & Stimulation == "2_tDCS_cat", Difference],  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
+
+
 
 #-------___________________________-------------------------------
 #----   GENERAL COMMENTS  AND EXPLORATORY PART  -------------------------------------------
@@ -551,7 +820,73 @@ str(pwtt_interaction_rm )
 pwtt_interaction_rm <- as.data.table(pwtt_interaction_rm[3], keep.rownames=T)
 View(pwtt_interaction_rm)
 
+#----   CATHODAL ANCOVA ---------------------------
 
+cathodal_wide <- dcast(cathodal, Sub + Stimulation + Type + Choice ~ Rating)
+View(cathodal_difficult_wide)
+
+cathodal_difficult_wide <- dcast(cathodal_difficult, 
+                                 Sub + Stimulation + Type + Choice ~ Rating)
+
+ezANOVA(data = cathodal, dv = Evaluation, wid = Sub,
+        within = .(Stimulation, Type, Choice, Rating), 
+        return_aov = T, type = 3)
+
+ezANOVA(data = cathodal_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Type, Choice), 
+        within_covariates = R1, return_aov = T)
+head(cathodal)
+
+ezANOVA(data = cathodal_difficult_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Choice), 
+        within_covariates = R1, return_aov = T)
+
+
+#----   CATHODAL ANCOVA only rejected ---------------------------
+
+cathodal_rejected_wide <- dcast(cathodal_rejected, 
+                                 Sub + Stimulation + Type + Choice ~ Rating)
+View(cathodal_difficult_rejected_wide)
+head(cathodal_difficult_rejected_wide)
+
+
+ezANOVA(data = cathodal_rejected_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Type), 
+        within_covariates = R1, return_aov = T)
+
+
+cathodal_difficult_rejected <- cathodal_rejected[Type == 'Difficult', ]
+cathodal_difficult_rejected_wide <- dcast(cathodal_difficult_rejected, 
+                                Sub + Stimulation + Type + Choice ~ Rating)
+
+ezANOVA(data = cathodal_difficult_rejected_wide, dv = R2, wid = Sub,
+        within = Stimulation, 
+        within_covariates = R1, return_aov = T)
+
+
+#----   ANODAL ANCOVA ---------------------------
+
+anodal_wide <- dcast(anodal, Sub + Stimulation + Type + Choice ~ Rating)
+View(anodal_wide)
+
+anodal_difficult <- cathodal[Type == 'Difficult', ]
+
+anodal_difficult_wide <- dcast(anodal_difficult, 
+                               Sub + Stimulation + Type + Choice ~ Rating)
+
+ezANOVA(data = anodal, dv = Evaluation, wid = Sub,
+        within = .(Stimulation, Type, Choice, Rating), 
+        return_aov = T, type = 3)
+
+
+ezANOVA(data = anodal_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Type, Choice), 
+        within_covariates = R1, return_aov = T)
+
+
+ezANOVA(data = anodal_difficult_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Choice), 
+        within_covariates = R1, return_aov = T)
 
 #----   CATHODAL REP MEASURMENT ANOVA by different choice factor (as Marco did)-----------------------------------------
 
@@ -715,3 +1050,4 @@ View(pwtt_interaction2_pv_none_tvalues$t.value)
 # ANOVA_cathodal_gs
 # summary(ANOVA_cathodal_gs$aov)
 
+gs_ANOVA_full_and_posthoc()
