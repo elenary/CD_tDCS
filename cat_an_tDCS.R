@@ -180,6 +180,8 @@ pairwise.t.test.with.t.and.df <- function (x, g, p.adjust.method = p.adjust.meth
   class(ans) <- "pairwise.htest"
   ans
 }
+
+
 pairwise.table.t <- function (compare.levels.t, level.names, p.adjust.method) 
 {
   ix <- setNames(seq_along(level.names), level.names)
@@ -195,7 +197,7 @@ pairwise.table.t <- function (compare.levels.t, level.names, p.adjust.method)
   pp
 }
 
-
+}
 
 
 
@@ -203,12 +205,13 @@ pairwise.table.t <- function (compare.levels.t, level.names, p.adjust.method)
 
 #----   FUNCTION FOR GAIN SCORE ANOVA ANALYSIS-----------
 
-gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostHocFactor2) {
+gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostHocFactor2) 
+  {
   #ANOVA
   if (dv_numbers == 3) {
     gs_ANOVA_full <- ezANOVA(data = dataset, dv = Difference, wid = Sub,
             within = .(Stimulation, Type, Choice), return_aov = T, type = 3)
-  }
+  } }
   
   if (dv_numbers == 2) {
     gs_ANOVA_full <- ezANOVA(data = dataset, dv = Difference, wid = Sub,
@@ -248,15 +251,15 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
   
 }
 
-
-#----   CATHODAL 2x4x2 GAIN SCORE ANOVA for difference    ---------
+#----   1 CATHODAL ANALYSIS PART   --------------------------
+#---- 1.1 Cathodal 2x4x2 gain score ANOVA for difference (refuced)   ---------
 
 gs_ANOVA_cathodal <- gs_ANOVA_full_and_posthoc(cathodal_dif, 3, Type, Choice)
 gs_ANOVA_cathodal$gs_ANOVA
 gs_ANOVA_cathodal$gs_ANOVA$ANOVA
 gs_ANOVA_cathodal$residuals
 hist(gs_ANOVA_cathodal$residuals) 
-
+View(cathodal_dif)
 
 #----   post hoc for cathodal interaction Type:Choice    ------------------------------------
 
@@ -305,7 +308,7 @@ View(cathodal_dif_interaction2)
 
 
 
-#----   t tests for difference in difficult rejected for checking--------
+#----   1.2 t tests for difference in difficult rejected for checking--------
 
 #t test  for cathodal, cohens'D and stat power
 
@@ -355,7 +358,7 @@ Pvalue.norm.sim()
 
 pwr.t.test(n = 17, d=0.29, sig.level = 0.05)
 
-#----   CATHODAL 2x2 GAIN SCORE ANOVA by different choice factor---------------------------
+#----   1.3 cathodal 2x2 gain score ANOVA by different choice factor---------------------------
 
 # for checking is gain score ANOVA differ from the initial RM Marco by factors
 
@@ -379,7 +382,7 @@ ANOVA_cathodal_gs_PostEx <- ezANOVA(data = cathodal_dif[Type == 'Post-Ex', ], dv
 ANOVA_cathodal_gs_PostEx$ANOVA
 
 
-#----   POST HOC Stimulation:Choice FOR GAIN SCORE ANOVA by different choice type-----------------
+#----   post hoc Stimulation:Choice FOR GAIN SCORE ANOVA by different choice type-----------------
 
 #difficult choices (target)
 
@@ -439,6 +442,52 @@ View(pairwTTest_fdr_gs_easy$p.value)
 pairwTTest_fdr_gs_easy$t.value
 View(pairwTTest_fdr_gs_easy$t.value)
 pairwTTest_fdr_gs_easy$dfs
+
+#-----  1.4 cathodal ANCOVA (main)---------------------------
+
+cathodal_wide <- dcast(cathodal, Sub + Stimulation + Type + Choice ~ Rating)
+View(cathodal_difficult_rejected)
+
+cathodal_difficult_wide <- dcast(cathodal_difficult, 
+                                 Sub + Stimulation + Type + Choice ~ Rating)
+
+ezANOVA(data = cathodal, dv = Evaluation, wid = Sub,
+        within = .(Stimulation, Type, Choice, Rating), 
+        return_aov = T, type = 3)
+
+ezANOVA(data = cathodal_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Type, Choice), 
+        within_covariates = R1, return_aov = T)
+head(cathodal)
+
+ezANOVA(data = cathodal_difficult_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Choice), 
+        within_covariates = R1, return_aov = T)
+
+
+#----   1.5 cathodal ANCOVA only rejected ---------------------------
+
+cathodal_rejected_wide <- dcast(cathodal_rejected, 
+                                Sub + Stimulation + Type + Choice ~ Rating)
+View(cathodal_difficult_rejected_wide)
+head(cathodal_difficult_rejected_wide)
+
+cathodal_difficult_rejected <- cathodal_rejected[Type == 'Difficult', ]
+cathodal_difficult_rejected_wide <- dcast(cathodal_difficult_rejected, 
+                                          Sub + Stimulation + Type + Choice ~ Rating)
+
+ezANOVA(data = cathodal_rejected_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Type),
+        within_covariates = R1, return_aov = T)
+
+cathodal_rejected_difference <- cathodal_dif[Choice == 'Rejected',]
+View(cathodal_rejected_difference)
+
+ezANOVA(data = cathodal_rejected_difference, dv = Difference, wid = Sub,
+        within = .(Stimulation, Type), 
+        return_aov = T, type = 3)
+
+#----   1.5 cathodal ANCOVA with planned contrasts ---------------------------
 
 
 
@@ -820,48 +869,7 @@ str(pwtt_interaction_rm )
 pwtt_interaction_rm <- as.data.table(pwtt_interaction_rm[3], keep.rownames=T)
 View(pwtt_interaction_rm)
 
-#----   CATHODAL ANCOVA ---------------------------
 
-cathodal_wide <- dcast(cathodal, Sub + Stimulation + Type + Choice ~ Rating)
-View(cathodal_difficult_wide)
-
-cathodal_difficult_wide <- dcast(cathodal_difficult, 
-                                 Sub + Stimulation + Type + Choice ~ Rating)
-
-ezANOVA(data = cathodal, dv = Evaluation, wid = Sub,
-        within = .(Stimulation, Type, Choice, Rating), 
-        return_aov = T, type = 3)
-
-ezANOVA(data = cathodal_wide, dv = R2, wid = Sub,
-        within = .(Stimulation, Type, Choice), 
-        within_covariates = R1, return_aov = T)
-head(cathodal)
-
-ezANOVA(data = cathodal_difficult_wide, dv = R2, wid = Sub,
-        within = .(Stimulation, Choice), 
-        within_covariates = R1, return_aov = T)
-
-
-#----   CATHODAL ANCOVA only rejected ---------------------------
-
-cathodal_rejected_wide <- dcast(cathodal_rejected, 
-                                 Sub + Stimulation + Type + Choice ~ Rating)
-View(cathodal_difficult_rejected_wide)
-head(cathodal_difficult_rejected_wide)
-
-
-ezANOVA(data = cathodal_rejected_wide, dv = R2, wid = Sub,
-        within = .(Stimulation, Type), 
-        within_covariates = R1, return_aov = T)
-
-
-cathodal_difficult_rejected <- cathodal_rejected[Type == 'Difficult', ]
-cathodal_difficult_rejected_wide <- dcast(cathodal_difficult_rejected, 
-                                Sub + Stimulation + Type + Choice ~ Rating)
-
-ezANOVA(data = cathodal_difficult_rejected_wide, dv = R2, wid = Sub,
-        within = Stimulation, 
-        within_covariates = R1, return_aov = T)
 
 
 #----   ANODAL ANCOVA ---------------------------
