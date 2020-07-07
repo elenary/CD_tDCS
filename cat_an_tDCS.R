@@ -11,9 +11,13 @@ install.packages("viridis")
 install.packages('HH')
 install.packages('rstatix')
 install.packages('nlme')
+install.packages('lme4')
 install.packages('emmeans')
 install.packages('contrast')
 install.packages('stats')
+install.packages('RColorBrewer')
+install.packages('lmerTest')
+install.packages('nlme')
 
 # install.packages("rlang")
 
@@ -36,7 +40,11 @@ library(nlme)
 library(emmeans)
 library(contrast)
 library(stats)
+library(lme4)
+library(lmerTest)
+library(nlme)
 
+# here is data.table, dplyr ver will appear later
 
 # locale
 
@@ -49,7 +57,7 @@ display.brewer.all()
 viridis(2)
 scale_color_viridis()
 
-#----cathodal df--------------------------------------------------------
+#----cathodal dt--------------------------------------------------------
 
 cathodal <-
   fread("tDCS_cathodal.csv",
@@ -80,7 +88,7 @@ cathodal_dif[, 'Rating'] <- NULL
 View(cathodal_dif)
 
 
-#----anodal df--------------------------------------------------------
+#----anodal dt--------------------------------------------------------
 
 anodal <-
   fread("tDCS_anodal2.csv",
@@ -109,14 +117,14 @@ colnames(anodal_dif)[colnames(anodal_dif) == "Evaluation"] <-
 anodal_dif[, 'Rating'] <- NULL
 View(anodal_dif)
 
-#Post-Ex is processed separatly, remove it
+#Post-Ex is processed separately, remove it
 # anodal_dif_short <- subset(anodal_dif, Type != "Post-Ex")
 
 length_cat <- length(unique(cathodal_dif$Sub, incomparables = FALSE))
 length_cat
 length_an <- length(unique(anodal_dif$Sub, incomparables = FALSE))
 length_an
-#----   function for extracting t values and DFs-----------------
+#----   function for extracting t values and DFs (not mine)-----------------
 
 pairwise.t.test.with.t.and.df <- function (x, g, p.adjust.method = p.adjust.methods, pool.sd = !paired, 
                                            paired = FALSE, alternative = c("two.sided", "less", "greater"), 
@@ -209,7 +217,7 @@ pairwise.table.t <- function (compare.levels.t, level.names, p.adjust.method)
 
 
 
-#----   FUNCTION FOR GAIN SCORE ANOVA ANALYSIS-----------
+#----   function for gain score ANOVA output (by me) -----------
 
 gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostHocFactor2) 
   {
@@ -258,7 +266,7 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
 }
 
 #----   1 CATHODAL ANALYSIS PART   --------------------------
-#---- 1.1.1 Cathodal 2x4x2 gain score ANOVA for difference (refuced)   ---------
+#---- 1.1.1 ✖ Cathodal 2x4x2 gain score ANOVA for difference    ---------
 
 gs_ANOVA_cathodal <- gs_ANOVA_full_and_posthoc(cathodal_dif, 3, Type, Choice)
 gs_ANOVA_cathodal$gs_ANOVA
@@ -269,10 +277,10 @@ hist(gs_ANOVA_cathodal$residuals)
 
 
 
-#-----  1.1.2 cathodal 2x4x2 ANCOVA (main)---------------------------
+#-----  1.1.2 ✓ cathodal 2x4x2 ANCOVA (main)---------------------------
 
 cathodal_wide <- dcast(cathodal, Sub + Stimulation + Type + Choice ~ Rating)
-
+cathodal_wide <- as.data.table(cathodal_wide)
 
 # ezANOVA(data = cathodal, dv = Evaluation, wid = Sub,
 #         within = .(Stimulation, Type, Choice, Rating), 
@@ -340,11 +348,13 @@ pairwTTest_fdr_gs_withtvalues2 <-
 
 pairwTTest_fdr_gs_withtvalues2$p.value
 
-#----   1.1.3 cathodal 2x4x2 ANCOVA with planned contrasts --------------------
+#----   1.1.3 ✖ TRY cathodal 2x4x2 ANCOVA with planned contrasts --------------------
 View(cathodal)
 View(cathodal_dif)
 
 View(cathodal_wide)
+
+cathodal_wide_factors <- cathodal_wide
 
 levels(as.factor(cathodal_wide$Stimulation))
 levels(as.factor(cathodal_wide$Type))
@@ -355,7 +365,7 @@ cathodal_wide_factors$Type <- as.factor(cathodal_wide$Type)
 cathodal_wide_factors$Choice <- as.factor(cathodal_wide$Choice)
 
 head(cathodal_wide_factors)
-View(cathodal_wide_factors)
+# View(cathodal_wide_factors)
 
 dummies_Stimulation <- c(rep(-1, 8), rep(1,8), rep(-1, 8), rep(1,8))
 dummies_Type <- c(rep(-1/3, 2), rep(1, 2), rep(-1/3, 2), rep(-1/3,2), rep(-1/3, 2), rep(1, 2), rep(-1/3, 2), rep(-1/3,2))
@@ -385,6 +395,8 @@ anovka <- ezANOVA(data = cathodal_wide_factors, dv = R2, wid = Sub,
 anovka
 
 #here i realized that actial class of anovka$aov is [1] "aovlist" "listof" , NOT aov!!
+#and that ruined all the analysis
+
 # anovka$aov
 # summary(anovka$aov)
 # str(anovka$aov)
@@ -429,23 +441,189 @@ head(cathodal_wide)
 View(cathodal)
 View(cathodal_wide)
 
-# try 2
-
-# try 3 with lme
+#----   1.1.4 ✓ cathodal LME  -----------------
 
 # modelka <- lmer(R2~R1+Stimulation+Type+Choice, data = cathodal_wide)
 # summary(lm(R2~R1+Stimulation+Type+Choice, data = cathodal_wide))
 # summary.lm(lm(R2~R1+Stimulation+Type+Choice, data = cathodal_wide))
 
-lmer(R2~R1+Stimulation+Type+Choice, data = cathodal_wide)
+ezANOVA(data = cathodal_wide, dv = R2, wid = Sub,
+        within = .(Stimulation, Type, Choice), 
+        within_covariates = R1, return_aov = T, type = 3)
 
 
+lmerka1 <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                data = cathodal_wide, REML = F)
+anova(lmerka1)
+summary(lmerka1)
+
+lmerka5 <- lmer(R2 ~ Stimulation*Type*Choice + (R1 + Stimulation|Sub), 
+                data = cathodal_wide, REML = F)
+anova(lmerka5)
+summary(lmerka5)
+
+lmerka4 <- lmer(R2 ~ Stimulation*Type*Choice + (R1 + R1|Sub), 
+                data = cathodal_wide, REML = F)
+anova(lmerka4)
+summary(lmerka4)
+
+lmerka2 <- lmer(R2 ~ Stimulation*Type*Choice + (R1 + R1|Sub) + (Stimulation|Sub), 
+                 data = cathodal_wide, REML = F)
+anova(lmerka2)
+summary(lmerka2)
+
+# lmerka3 <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + 1|Sub), 
+#                 data = cathodal_wide, REML = F)
+
+#worst by AIC, BIC and LogLik
+lmerka_dif <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                   data = cathodal_dif, REML = F)
+anova(lmerka_dif)
+summary(lmerka_dif)
+
+model.matrix(lmerka_dif)
+
+# lmerka_gls <- gls(R2 ~ R1 + Stimulation*Type*Choice, data = cathodal_wide, 
+#                   random =  ~ (1 + Stimulation|Sub), 
+#                   method = 'ML')
+
+lmerka_lme <- lme(R2 ~ R1 + Stimulation*Type*Choice, data = cathodal_wide,
+                  random =  ~ 1 + Stimulation|Sub,
+                  method = 'ML')
+
+anova(lmerka_lme )
+summary(lmerka_lme )
+
+pairwise.t.test()
+
+View(cathodal_dif)
+
+
+summary(lmerka1)
+summary(lmerka2)
+summary(lmerka_dif)
+anova(lmerka2)
+anova(lmerka_dif)
+View(cathodal_wide)
+
+ggplot(fortify(lmerka1))
+
+
+# model on the subset of data (only data involved in key comparisonsn)
+#comparisons:
+# 1) difficult rejected cathodal отличаются от difficult rejected sham
+# 2)difficult rejected cathodal отличаются от difficult selected cathodal
+# 3)difficult rejected cathodal отличаются от easy rejected cathodal
+# 4)difficult rejected cathodal отличаются от computer rejected cathodal
+# 5)difficult rejected cathodal отличаются от post-ex rejected cathodal
+
+cathodal_wide_cropped <- cathodal_wide[Stimulation == 'tDCS_cat' & Choice == "Rejected" | 
+                                     Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" | 
+                                     Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
+View(cathodal_dif_cropped)
+
+
+cathodal_dif_cropped <- cathodal_dif[Stimulation == 'tDCS_cat' & Choice == "Rejected" | 
+                                     Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" |
+                                     Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
+
+lmerka_cropped <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                 data = cathodal_wide_cropped, REML = F)
+
+
+lmerka_dif_cropped <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                           data = cathodal_dif_cropped, REML = F)
+
+
+anova(lmerka_dif_cropped)
+anova(lmerka_cropped, type = 1) #whithout error but still no calculations for interaction of factors
+
+summary(lmerka_cropped)
+anova(lmerka_cropped)
+head(cathodal_wide_cropped)
+View(cathodal_dif_cropped)
+
+
+
+# lmer(R2 ~ R1 + Stimulation*Type*Choice + 
+#                  (1|Sub) + (1|Stimulation:Sub) + (1|Type:Sub) + (1|Choice:Sub), 
+#                data=cathodal_wide)
+
+# lmer(R2 ~ R1 + Stimulation*Type*Choice + 
+#        (R1|Sub) + (R1|Stimulation:Sub) + (R1|Type:Sub) + (R1|Choice:Sub), 
+#      data=cathodal_wide)
+
+
+# lmerka2 <- lmer(R2 ~ Stimulation*Type*Choice + 
+#                  (1|Sub) + (1|Stimulation:Sub) + (1|Type:Sub) + (1|Choice:Sub), 
+#                data=cathodal_wide)
+
+
+
+lmerka
+
+lmerka2
+
+
+
+
+
+#----   1.1.5 ✓ paired t test for 6 hypothesis  -----------------
+
+#  post hoc interaction Stimulation:Type:Choice (it's not significant but interesting to see)
+
+cathodal_dif_cropped_interaction <- cathodal_dif_cropped
+cathodal_dif_cropped_interaction[, 'Stimulation_Type_Choice'] <-
+  paste0(cathodal_dif_cropped_interaction[, Stimulation], '_', cathodal_dif_cropped_interaction[, Type], '_', cathodal_dif_cropped_interaction[, Choice])
+
+View(cathodal_dif_cropped_interaction)
+
+pairwTTest_fdr_dif_cropped <-
+  pairwise.t.test.with.t.and.df(
+    x = cathodal_dif_cropped_interaction$Difference,
+    g = cathodal_dif_cropped_interaction$Stimulation_Type_Choice,
+    p.adjust.method = 'fdr',
+    paired = T
+  ) 
+
+pairwTTest_fdr_dif_cropped$p.value
+
+
+pairwTTest_bh_dif_cropped <-
+  pairwise.t.test.with.t.and.df(
+    x = cathodal_dif_cropped_interaction$Difference,
+    g = cathodal_dif_cropped_interaction$Stimulation_Type_Choice,
+    p.adjust.method = 'BH',
+    paired = T
+  ) 
+
+pairwTTest_bh_dif_cropped$p.value
+
+
+pairwTTest_fdr_dif_cropped <-
+  pairwise.t.test.with.t.and.df(
+    x = cathodal_dif_cropped_interaction$Difference,
+    g = cathodal_dif_cropped_interaction$Stimulation_Type_Choice,
+    p.adjust.method = '',
+    paired = T
+  ) 
+
+pairwTTest_fdr_dif_cropped$p.value
 #----   1.2 t tests for difference in difficult rejected for checking--------
 
 #t test  for cathodal, cohens'D and stat power
 
 cathodal_dif_sham_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "sham" & Choice == 'Rejected', Difference]
 cathodal_dif_tDCS_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+
+cathodal_dif_tDCS_sel <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Selected', Difference]
+cathodal_easy_tDCS_rej <- cathodal_dif[Type == "Easy" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+cathodal_comp_tDCS_rej <- cathodal_dif[Type == "Computer" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+cathodal_postex_tDCS_rej <- cathodal_dif[Type == "Post-Ex" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+
+
+
+
 # 
 # cohensD <- cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
 # cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
@@ -463,7 +641,15 @@ t.test(x = cathodal_dif_sham_rej,
        paired = T, var.equal = FALSE,
        conf.level = 0.95, alternative = "less")
 
+t.test(x = cathodal_dif_tDCS_sel,  
+       y = cathodal_dif_tDCS_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
 
+t.test(x = cathodal_dif_tDCS_sel,  
+       y = cathodal_dif_tDCS_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
 
 
 main_test <- t.test(x = cathodal_dif_sham_rej,  
@@ -1175,11 +1361,11 @@ View(pwtt_interaction2_pv_none_tvalues$t.value)
 #                 p.adjust.method = 'bonf') 
 
 
-#-------is there difference between ANOVA type 3 and 2? No---------
+#-------is there difference between ANOVA type 3 and 2? No (there)---------
 
-# ANOVA_cathodal_gs <- ezANOVA(data = cathodal_dif, dv = Difference, wid = Sub,
-#                              within = .(Stimulation, Type, Choice), return_aov = T, type = 2)
-# ANOVA_cathodal_gs
-# summary(ANOVA_cathodal_gs$aov)
+ANOVA_cathodal_gs <- ezANOVA(data = cathodal_dif, dv = Difference, wid = Sub,
+                             within = .(Stimulation, Type, Choice), return_aov = T, type = 2)
+ANOVA_cathodal_gs
+summary(ANOVA_cathodal_gs$aov)
 
 gs_ANOVA_full_and_posthoc()
