@@ -449,16 +449,13 @@ head(cathodal_wide)
 View(cathodal)
 View(cathodal_wide)
 
-#----   1.1.4 ✓ cathodal LME  -----------------
-
-# modelka <- lmer(R2~R1+Stimulation+Type+Choice, data = cathodal_wide)
-# summary(lm(R2~R1+Stimulation+Type+Choice, data = cathodal_wide))
-# summary.lm(lm(R2~R1+Stimulation+Type+Choice, data = cathodal_wide))
+#----   1.1.4 ✓ cathodal LME  -------------------------------------------------------
 
 ezANOVA(data = cathodal_wide, dv = R2, wid = Sub,
         within = .(Stimulation, Type, Choice), 
         within_covariates = R1, return_aov = T, type = 3)
 
+#unsuccessful trials for covariate design-----------------------------------------
 
 lmerka1 <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + Stimulation|Sub), 
                 data = cathodal_wide, REML = F)
@@ -483,24 +480,7 @@ summary(lmerka2)
 # lmerka3 <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + 1|Sub), 
 #                 data = cathodal_wide, REML = F)
 
-#worst by AIC, BIC and LogLik
-lmerka_dif <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-                   data = cathodal_dif, REML = F)
-anova(lmerka_dif)
-summary(lmerka_dif)
 
-model.matrix(lmerka_dif)
-
-
-
-# lmerka_dif2 <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-#                     data = cathodal_dif, REML = F)
-
-lmerka_dif2 <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-                   data = cathodal_dif, REML = T)
-
-anova(lmerka_dif2)
-summary(lmerka_dif)
 
 
 
@@ -529,8 +509,25 @@ View(cathodal_wide)
 
 ggplot(fortify(lmerka1))
 
+#model on the full data------------------------------------------------------
 
-# model on the subset of data (only data involved in key comparisonsn)
+lmerka_dif <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                   data = cathodal_dif, REML = F)
+lmerka_dif 
+anova(lmerka_dif)
+summary(lmerka_dif)
+
+model.matrix(lmerka_dif)
+
+#worst by AIC and LogLik
+lmerka_dif2 <- lmer(Difference ~ Stimulation*Type*Choice + (1 + 1|Sub), 
+                   data = cathodal_dif, REML = F)
+lmerka_dif2
+anova(lmerka_dif)
+summary(lmerka_dif)
+
+
+# model on the subset of data (only data involved in key comparisonsn)-----------------------
 
 
 # 1) for full, main:
@@ -559,22 +556,21 @@ cathodal_dif_cropped <- cathodal_dif[Choice == "Rejected" |
 
 View(cathodal_dif_cropped)
 
-# lmerka_cropped <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-#                  data = cathodal_dif_cropped, REML = T)
-
 
 lmerka_dif_cropped <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
                            data = cathodal_dif_cropped, REML = F)
-
+lmerka_dif_cropped
 anova(lmerka_dif_cropped)
-anova(lmerka_cropped, type = 1) #whithout error but still no calculations for interaction of factors
 
-summary(lmerka_cropped)
-anova(lmerka_cropped)
-head(cathodal_wide_cropped)
-View(cathodal_dif_cropped)
+#whithout error but still no calculations for interaction of factors
+anova(lmerka_cropped, type = 1) 
 
-#unworking models
+
+#unworking models--------
+
+# modelka <- lmer(R2~R1+Stimulation+Type+Choice, data = cathodal_wide)
+# summary(lm(R2~R1+Stimulation+Type+Choice, data = cathodal_wide))
+# summary.lm(lm(R2~R1+Stimulation+Type+Choice, data = cathodal_wide))
 
 # lmer(R2 ~ R1 + Stimulation*Type*Choice + 
 #                  (1|Sub) + (1|Stimulation:Sub) + (1|Type:Sub) + (1|Choice:Sub), 
@@ -594,22 +590,78 @@ View(cathodal_dif_cropped)
 #----   1.1.5 ✓ paired t test for 6 hypothesis  -----------------
 
 
+# separeted t test for checking-----------------------------------------------------
 
-# separeted t test for checking 
-
+alpha_corrected <- 0.05/5
 
 
 # 1) for full, main:
 # difficult rejected cathodal отличаются от difficult rejected sham
 
+cathodal_dif_tDCS_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+cathodal_dif_sham_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "sham" & Choice == 'Rejected', Difference]
+
+
+t.test(x = cathodal_dif_sham_rej,  
+       y = cathodal_dif_tDCS_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "less")
+
+cohen.d( cathodal_dif_tDCS_rej, cathodal_dif_sham_rej, paired = T, hedges.correction = T)
 
 #2) for all where difficult: (control these is keeping for cathodal only and for sham only)
 # rejected отличаются от selected 
+
+cathodal_difficult_rej <- cathodal_dif[Type == "Difficult" & Choice == 'Rejected', Difference]
+cathodal_difficult_sel <- cathodal_dif[Type == "Difficult" & Choice == 'Selected', Difference]
+
+ttest_difficult <- t.test(x = cathodal_difficult_rej,  
+       y = cathodal_difficult_sel,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "less")
+
+
+
+
+cohen.d( cathodal_difficult_sel, cathodal_difficult_rej, paired = T, hedges.correction = T)
+
 #3) for all where rejected: (control these is keeping for cathodal only and for sham only)
 # difficult отличаются от easy 
 # difficult отличаются от computer 
 # difficult отличаются от post-ex ?
 
+cathodal_difficult_rej <- cathodal_dif[Type == "Difficult" & Choice == 'Rejected', Difference]
+cathodal_easy_rej <- cathodal_dif[Type == "Easy" & Choice == 'Rejected', Difference]
+cathodal_comp_rej <- cathodal_dif[Type == "Computer" & Choice == 'Rejected', Difference]
+cathodal_postex_rej <- cathodal_dif[Type == "Post-Ex" & Choice == 'Rejected', Difference]
+
+t.test(x = cathodal_difficult_rej,  
+                          y = cathodal_easy_rej,  
+                          paired = T, var.equal = FALSE,
+                          conf.level = 0.95, alternative = "less")
+
+
+cohen.d( cathodal_easy_rej, cathodal_difficult_rej, paired = T, hedges.correction = T)
+
+t.test(x = cathodal_difficult_rej,  
+       y = cathodal_comp_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "less")
+
+cohen.d( cathodal_comp_rej, cathodal_difficult_rej, paired = T, hedges.correction = T)
+
+
+t.test(x = cathodal_difficult_rej,  
+       y = cathodal_postex_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "less")
+
+cohen.d( cathodal_postex_rej, cathodal_difficult_rej, paired = T, hedges.correction = T)
+
+
+
+
+#pairwise t test for cathodal simulation mostly
 
 # 1) difficult rejected cathodal отличаются от difficult rejected sham
 # 2)difficult rejected cathodal отличаются от difficult selected cathodal
@@ -617,6 +669,57 @@ View(cathodal_dif_cropped)
 # 4)difficult rejected cathodal отличаются от computer rejected cathodal
 # 5)difficult rejected cathodal отличаются от post-ex rejected cathodal
 
+#pairwise t tests wrong way (without correction)---------------------------------------------------
+
+cathodal_dif_tDCS_sel <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Selected', Difference]
+cathodal_easy_tDCS_rej <- cathodal_dif[Type == "Easy" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+cathodal_comp_tDCS_rej <- cathodal_dif[Type == "Computer" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+cathodal_postex_tDCS_rej <- cathodal_dif[Type == "Post-Ex" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
+
+# cohensD <- cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
+# cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
+# sdpool <- sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
+# sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
+
+cohen.d(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej, paired = T, hedges.correction = T)
+cohen.d(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej, paired = T, hedges.correction = F)
+
+
+citation("effsize")
+
+
+
+t.test(x = cathodal_dif_tDCS_sel,  
+       y = cathodal_dif_tDCS_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
+
+t.test(x = cathodal_dif_tDCS_sel,  
+       y = cathodal_dif_tDCS_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 0.95, alternative = "two.sided")
+
+
+main_test <- t.test(x = cathodal_dif_sham_rej,  
+                    y = cathodal_dif_tDCS_rej,  
+                    paired = T, var.equal = FALSE,
+                    conf.level = 0.95, alternative = "two.sided")
+
+main_test$statistic
+
+t = seq(-5, 5, 0.01)
+sim_df <- data.frame(t = t, cdf = dt(t, 16))
+ggplot(sim_df, aes(x = t, y = cdf))+
+  geom_line()+
+  geom_vline(xintercept = main_test$statistic, colour = "#FF2277", size = 3)
+
+# Pvalue.norm.sim() 
+
+
+#stat power 
+pwr.t.test(n = 17, d=0.29, sig.level = 0.05)
+
+#pairwise t tests with multiple comparissons correction---------------------------------
 cathodal_dif_cropped_for_ttest <- cathodal_dif[Stimulation == 'tDCS_cat' & Choice == "Rejected" |
                                                  Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" |
                                                  Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
@@ -630,11 +733,6 @@ cathodal_dif_cropped_for_ttest_interaction[, 'Stimulation_Type_Choice'] <-
 
 View(cathodal_dif_cropped_for_ttest_interaction)
 
-
-
-
-
-#pairwise t test for cathodal simulation mostly
 
 pairwTTest_fdr_dif_cropped <-
   pairwise.t.test.with.t.and.df(
@@ -658,81 +756,8 @@ pairwTTest_bh_dif_cropped <-
 pairwTTest_bh_dif_cropped$p.value
 
 
-pairwTTest_fdr_dif_cropped <-
-  pairwise.t.test.with.t.and.df(
-    x = cathodal_dif_cropped_interaction$Difference,
-    g = cathodal_dif_cropped_interaction$Stimulation_Type_Choice,
-    p.adjust.method = '',
-    paired = T
-  ) 
-
-pairwTTest_fdr_dif_cropped$p.value
 
 
-#----   1.2 t tests for difference in difficult rejected for checking--------
-
-#t test  for cathodal, cohens'D and stat power
-
-cathodal_dif_sham_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "sham" & Choice == 'Rejected', Difference]
-cathodal_dif_tDCS_rej <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
-
-cathodal_dif_tDCS_sel <- cathodal_dif[Type == "Difficult" & Stimulation == "tDCS_cat" & Choice == 'Selected', Difference]
-cathodal_easy_tDCS_rej <- cathodal_dif[Type == "Easy" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
-cathodal_comp_tDCS_rej <- cathodal_dif[Type == "Computer" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
-cathodal_postex_tDCS_rej <- cathodal_dif[Type == "Post-Ex" & Stimulation == "tDCS_cat" & Choice == 'Rejected', Difference]
-
-
-
-
-# 
-# cohensD <- cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
-# cohensD(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej)
-# sdpool <- sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
-# sqrt( ( sd(cathodal_dif_sham_rej)^2 + sd(cathodal_dif_tDCS_rej)^2 ) /2 )
-
-cohen.d(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej, paired = T, hedges.correction = T)
-cohen.d(cathodal_dif_sham_rej, cathodal_dif_tDCS_rej, paired = T, hedges.correction = F)
-
-
-citation("effsize")
-
-t.test(x = cathodal_dif_sham_rej,  
-       y = cathodal_dif_tDCS_rej,  
-       paired = T, var.equal = FALSE,
-       conf.level = 0.95, alternative = "less")
-
-t.test(x = cathodal_dif_tDCS_sel,  
-       y = cathodal_dif_tDCS_rej,  
-       paired = T, var.equal = FALSE,
-       conf.level = 0.95, alternative = "two.sided")
-
-t.test(x = cathodal_dif_tDCS_sel,  
-       y = cathodal_dif_tDCS_rej,  
-       paired = T, var.equal = FALSE,
-       conf.level = 0.95, alternative = "two.sided")
-
-
-main_test <- t.test(x = cathodal_dif_sham_rej,  
-       y = cathodal_dif_tDCS_rej,  
-       paired = T, var.equal = FALSE,
-       conf.level = 0.95, alternative = "two.sided")
-
-main_test$statistic
-
-t = seq(-5, 5, 0.01)
-sim_df <- data.frame(t = t, cdf = dt(t, 16))
-ggplot(sim_df, aes(x = t, y = cdf))+
-  geom_line()+
-  geom_vline(xintercept = main_test$statistic, colour = "#FF2277", size = 3)
-
-
-Pvalue.norm.sim() 
-
-
-
-#stat power 
-
-pwr.t.test(n = 17, d=0.29, sig.level = 0.05)
 
 #----   1.3.1 cathodal 2x2 gain score ANOVA by different choice factor---------------------------
 
