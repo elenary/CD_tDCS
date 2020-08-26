@@ -264,6 +264,14 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
       # newDTwithInteraction = dataset_interaction)
   
 }
+#----   0 ANALYSIS PLANS AND INTERATIONS     --------------------------
+
+# Iterations:
+# 1. - Only Anova separately for different conditions (easy, difficult, computer, post-ex)
+# 2. - gain score / repeated measurment Anova for whole dataset
+# 3  + ANCOVA for whole dataset + ANCOVA for different conditions
+# 4. + LME for whole dataset for differences + LME for differen conditions 
+#+ pairwise t test for seprate hypothesis
 
 #----   1 CATHODAL ANALYSIS PART   --------------------------
 #---- 1.1.1 ✖ Cathodal 2x4x2 gain score ANOVA for difference    ---------
@@ -483,6 +491,19 @@ summary(lmerka_dif)
 
 model.matrix(lmerka_dif)
 
+
+
+# lmerka_dif2 <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+#                     data = cathodal_dif, REML = F)
+
+lmerka_dif2 <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                   data = cathodal_dif, REML = T)
+
+anova(lmerka_dif2)
+summary(lmerka_dif)
+
+
+
 # lmerka_gls <- gls(R2 ~ R1 + Stimulation*Type*Choice, data = cathodal_wide, 
 #                   random =  ~ (1 + Stimulation|Sub), 
 #                   method = 'ML')
@@ -510,30 +531,40 @@ ggplot(fortify(lmerka1))
 
 
 # model on the subset of data (only data involved in key comparisonsn)
-#comparisons:
+
+
+# 1) for full, main:
+# difficult rejected cathodal отличаются от difficult rejected sham
+#2) for all where difficult: (control these is keeping for cathodal only and for sham only)
+# rejected отличаются от selected 
+#3) for all where rejected: (control these is keeping for cathodal only and for sham only)
+# difficult отличаются от easy 
+# difficult отличаются от computer 
+# difficult отличаются от post-ex ?
+
+#comparissons
 # 1) difficult rejected cathodal отличаются от difficult rejected sham
 # 2)difficult rejected cathodal отличаются от difficult selected cathodal
 # 3)difficult rejected cathodal отличаются от easy rejected cathodal
 # 4)difficult rejected cathodal отличаются от computer rejected cathodal
 # 5)difficult rejected cathodal отличаются от post-ex rejected cathodal
 
-cathodal_wide_cropped <- cathodal_wide[Stimulation == 'tDCS_cat' & Choice == "Rejected" | 
-                                     Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" | 
-                                     Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
+
+# cathodal_wide_cropped <- cathodal_wide[Stimulation == 'tDCS_cat' & Choice == "Rejected" | 
+#                                      Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" | 
+#                                      Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
+
+cathodal_dif_cropped <- cathodal_dif[Choice == "Rejected" | 
+                                       Type == 'Difficult' ,]
+
 View(cathodal_dif_cropped)
 
-
-cathodal_dif_cropped <- cathodal_dif[Stimulation == 'tDCS_cat' & Choice == "Rejected" | 
-                                     Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" |
-                                     Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
-
-lmerka_cropped <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-                 data = cathodal_wide_cropped, REML = F)
+# lmerka_cropped <- lmer(R2 ~ R1 + Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+#                  data = cathodal_dif_cropped, REML = T)
 
 
 lmerka_dif_cropped <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
                            data = cathodal_dif_cropped, REML = F)
-
 
 anova(lmerka_dif_cropped)
 anova(lmerka_cropped, type = 1) #whithout error but still no calculations for interaction of factors
@@ -543,7 +574,7 @@ anova(lmerka_cropped)
 head(cathodal_wide_cropped)
 View(cathodal_dif_cropped)
 
-
+#unworking models
 
 # lmer(R2 ~ R1 + Stimulation*Type*Choice + 
 #                  (1|Sub) + (1|Stimulation:Sub) + (1|Type:Sub) + (1|Choice:Sub), 
@@ -560,23 +591,50 @@ View(cathodal_dif_cropped)
 
 
 
-lmerka
-
-lmerka2
-
-
-
-
-
 #----   1.1.5 ✓ paired t test for 6 hypothesis  -----------------
 
-#  post hoc interaction Stimulation:Type:Choice (it's not significant but interesting to see)
 
-cathodal_dif_cropped_interaction <- cathodal_dif_cropped
-cathodal_dif_cropped_interaction[, 'Stimulation_Type_Choice'] <-
-  paste0(cathodal_dif_cropped_interaction[, Stimulation], '_', cathodal_dif_cropped_interaction[, Type], '_', cathodal_dif_cropped_interaction[, Choice])
 
-View(cathodal_dif_cropped_interaction)
+# separeted t test for checking 
+
+
+
+# 1) for full, main:
+# difficult rejected cathodal отличаются от difficult rejected sham
+
+
+#2) for all where difficult: (control these is keeping for cathodal only and for sham only)
+# rejected отличаются от selected 
+#3) for all where rejected: (control these is keeping for cathodal only and for sham only)
+# difficult отличаются от easy 
+# difficult отличаются от computer 
+# difficult отличаются от post-ex ?
+
+
+# 1) difficult rejected cathodal отличаются от difficult rejected sham
+# 2)difficult rejected cathodal отличаются от difficult selected cathodal
+# 3)difficult rejected cathodal отличаются от easy rejected cathodal
+# 4)difficult rejected cathodal отличаются от computer rejected cathodal
+# 5)difficult rejected cathodal отличаются от post-ex rejected cathodal
+
+cathodal_dif_cropped_for_ttest <- cathodal_dif[Stimulation == 'tDCS_cat' & Choice == "Rejected" |
+                                                 Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" |
+                                                 Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
+
+
+cathodal_dif_cropped_for_ttest_interaction <- cathodal_dif_cropped_for_ttest
+cathodal_dif_cropped_for_ttest_interaction[, 'Stimulation_Type_Choice'] <-
+  paste0(cathodal_dif_cropped_for_ttest_interaction[, Stimulation], '_', 
+         cathodal_dif_cropped_for_ttest_interaction[, Type], '_', 
+         cathodal_dif_cropped_for_ttest_interaction[, Choice])
+
+View(cathodal_dif_cropped_for_ttest_interaction)
+
+
+
+
+
+#pairwise t test for cathodal simulation mostly
 
 pairwTTest_fdr_dif_cropped <-
   pairwise.t.test.with.t.and.df(
@@ -586,7 +644,7 @@ pairwTTest_fdr_dif_cropped <-
     paired = T
   ) 
 
-pairwTTest_fdr_dif_cropped$p.value
+View(pairwTTest_fdr_dif_cropped$p.value)
 
 
 pairwTTest_bh_dif_cropped <-
@@ -609,6 +667,8 @@ pairwTTest_fdr_dif_cropped <-
   ) 
 
 pairwTTest_fdr_dif_cropped$p.value
+
+
 #----   1.2 t tests for difference in difficult rejected for checking--------
 
 #t test  for cathodal, cohens'D and stat power
