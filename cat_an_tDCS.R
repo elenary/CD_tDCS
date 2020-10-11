@@ -18,6 +18,8 @@ install.packages('stats')
 install.packages('RColorBrewer')
 install.packages('lmerTest')
 install.packages('nlme')
+install.packages('cAIC4')
+install.packages('sjstats')
 
 # install.packages("rlang")
 
@@ -43,6 +45,9 @@ library(stats)
 library(lme4)
 library(lmerTest)
 # library(nlme)
+library(cAIC4)
+library(lattice)
+library(sjstats)
 
 # here is data.table, dplyr ver will appear later
 
@@ -264,6 +269,9 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
       # newDTwithInteraction = dataset_interaction)
   
 }
+
+
+
 #----   0 ANALYSIS PLANS AND INTERATIONS     --------------------------
 
 # Iterations:
@@ -279,6 +287,7 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
 
 
 
+
 # 1) difficult rejected cathodal отличаются от difficult rejected sham -- main
 # 2)difficult rejected less  than difficult selected 
 # 3)difficult rejected  отличаются от easy rejected 
@@ -286,6 +295,8 @@ gs_ANOVA_full_and_posthoc <- function(dataset, dv_numbers, PostHocFactor1, PostH
 # 5)difficult rejected  отличаются от post-ex rejected ????
 # 6) there is no difference in each condition: difficult rejected, easy rejected... 
 
+
+# cathodal tDCS----
 
 alpha_corrected <- 0.05/5
 
@@ -386,6 +397,77 @@ pairwTTest_fdr_dif <-
 
 View(pairwTTest_fdr_dif$p.value)
 
+#  anodal -----
+
+# 1) for full, main:
+# difficult rejected cathodal differ from difficult rejected sham (less)
+
+anodal_dif_tDCS_rej <- anodal_dif[Type == "Difficult" & Stimulation == "tDCS" 
+                                  & Choice == 'Rejected', Difference]
+anodal_dif_sham_rej <- anodal_dif[Type == "Difficult" & Stimulation == "sham" & Choice == 'Rejected', Difference]
+
+
+
+
+t.test(x = anodal_dif_tDCS_rej,  
+       y = anodal_dif_sham_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 1-alpha_corrected, alternative = "less")
+
+cohen.d( anodal_dif_tDCS_rej, anodal_dif_sham_rej, paired = T, hedges.correction = T)
+
+
+#2) for all where difficult: 
+# rejected less than selected 
+
+anodal_difficult_rej <- anodal_dif[Type == "Difficult" & Choice == 'Rejected', Difference]
+anodal_difficult_sel <- anodal_dif[Type == "Difficult" & Choice == 'Selected', Difference]
+
+t.test(x = anodal_difficult_rej,  
+       y = anodal_difficult_sel,  
+       paired = T, var.equal = FALSE,
+       conf.level = 1-alpha_corrected, alternative = "less")
+
+
+
+
+cohen.d( anodal_difficult_rej, anodal_difficult_sel, paired = T, hedges.correction = T)
+
+#3) for all where rejected: 
+# difficult отличаются от easy 
+# difficult отличаются от computer 
+# difficult отличаются от post-ex ?
+
+anodal_difficult_rej <- anodal_dif[Type == "Difficult" & Choice == 'Rejected', Difference]
+anodal_easy_rej <- anodal_dif[Type == "Easy" & Choice == 'Rejected', Difference]
+anodal_comp_rej <- anodal_dif[Type == "Computer" & Choice == 'Rejected', Difference]
+anodal_postex_rej <- anodal_dif[Type == "Post-Ex" & Choice == 'Rejected', Difference]
+
+
+
+t.test(x = anodal_difficult_rej,  
+       y = anodal_easy_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 1-alpha_corrected, alternative = "less")
+
+
+cohen.d( anodal_difficult_rej, anodal_easy_rej, paired = T, hedges.correction = T)
+
+t.test(x = anodal_difficult_rej,  
+       y = anodal_comp_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 1-alpha_corrected, alternative = "less")
+
+cohen.d( anodal_difficult_rej, anodal_comp_rej, paired = T, hedges.correction = T)
+
+
+t.test(x = anodal_difficult_rej,  
+       y = anodal_postex_rej,  
+       paired = T, var.equal = FALSE,
+       conf.level = 1-alpha_corrected, alternative = "less")
+
+cohen.d( anodal_difficult_rej, anodal_postex_rej, paired = T, hedges.correction = T)
+
 #---- 1.1.1 ✖ 2x4x2 gain score ANOVA for difference    ---------
 
 # Cathodal --
@@ -399,7 +481,7 @@ hist(gs_ANOVA_cathodal$residuals)
 
 
 
-#-----  1.1.2 ✓ 2x4x2 ANCOVA (main)---------------------------
+#-----  1.1.2 ✓✖ 2x4x2 ANCOVA (main)---------------------------
 
 # Cathodal --
 
@@ -572,7 +654,7 @@ View(cathodal_wide)
 
 #----   1.1.4 ✓  LME  -------------------------------------------------------
 
-# Cathodal ---
+#--Cathodal full data----------
 
 ezANOVA(data = cathodal_wide, dv = R2, wid = Sub,
         within = .(Stimulation, Type, Choice), 
@@ -632,51 +714,250 @@ View(cathodal_wide)
 
 ggplot(fortify(lmerka1))
 
-#model on the full data------------------------------------------------------
+#successful lme model on the full data------------------------------------------------------
 
-lmerka_dif <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-                   data = cathodal_dif, REML = F)
-lmerka_dif 
-anova(lmerka_dif)
-summary(lmerka_dif)
+#if we are comparing models with same fixed factors and different random factors,
+#we should use REML (restricted max likelihood)
 
-model.matrix(lmerka_dif)
-
-#worst by AIC and LogLik
-lmerka_dif2 <- lmer(Difference ~ Stimulation*Type*Choice + (1 + 1|Sub), 
-                   data = cathodal_dif, REML = F)
-lmerka_dif2
-anova(lmerka_dif)
-summary(lmerka_dif)
+#https://stats.stackexchange.com/questions/13166/rs-lmer-cheat-sheet
+View(cathodal_dif)
+      
 
 
-# model on the subset of data (only data involved in key comparisonsn)-----------------------
+#model with only random intercept for sub only (has huge Type 1 error rate)
+##why this does not work??? -- because of breakets???
+#https://stats.stackexchange.com/questions/58745/using-lmer-for-repeated-measures-linear-mixed-effect-model
+
+lmerka_random_int_sub <- lmer(Difference ~ Stimulation*Type*Choice + (1|Sub), 
+                    data = cathodal_dif, REML = T)
+lmerka_random_int_sub 
+anova(lmerka_random_int_sub)
+summary(lmerka_random_int_sub)
+isSingular(lmerka_random_int_sub)
+
+#model with random intercept and slope for sub only
+lmerka_random_int_slope_sub <- lmer(Difference ~ Stimulation*Type*Choice + (1 + 1|Sub), 
+                    data = cathodal_dif, REML = T)
+lmerka_random_int_slope_sub 
+anova(lmerka_random_int_slope_sub)
+summary(lmerka_random_int_slope_sub)
+isSingular(lmerka_random_int_slope_sub)
+
+#model with correlated random intercept and ransom slope by stimulation 
+# Conditional Akaike information criterion:   386.79
+lmerka_random_int_slope_stim_sub <- lmer(Difference ~ 
+                                           Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                                         data = cathodal_dif, REML = T)
+lmerka_random_int_slope_stim_sub 
+anova_lmerka_random_int_slope_stim_sub <- anova(lmerka_random_int_slope_stim_sub)
+#why do we need anova(lm)
+#https://stats.stackexchange.com/questions/115304/interpreting-output-from-anova-when-using-lm-as-input
+anova_lmerka_random_int_slope_stim_sub
+summary(lmerka_random_int_slope_stim_sub)
+isSingular(lmerka_random_int_slope_stim_sub)
+
+eta_sq(anova_lmerka_random_int_slope_stim_sub, partial = T,ci.lvl = NULL)
+     
 
 
-# 1) for full, main:
-# difficult rejected cathodal отличаются от difficult rejected sham
-#2) for all where difficult: (control these is keeping for cathodal only and for sham only)
-# rejected отличаются от selected 
-#3) for all where rejected: (control these is keeping for cathodal only and for sham only)
-# difficult отличаются от easy 
-# difficult отличаются от computer 
-# difficult отличаются от post-ex ?
-
-#comparissons
-# 1) difficult rejected cathodal отличаются от difficult rejected sham
-# 2)difficult rejected cathodal отличаются от difficult selected cathodal
-# 3)difficult rejected cathodal отличаются от easy rejected cathodal
-# 4)difficult rejected cathodal отличаются от computer rejected cathodal
-# 5)difficult rejected cathodal отличаются от post-ex rejected cathodal
-
-
-# cathodal_wide_cropped <- cathodal_wide[Stimulation == 'tDCS_cat' & Choice == "Rejected" | 
-#                                      Stimulation == 'tDCS_cat' & Type == 'Difficult' & Choice == "Selected" | 
-#                                      Stimulation == 'sham' & Type == 'Difficult' & Choice == "Rejected" ,]
+#model with only random slope for stimulation / sub 
+# Conditional Akaike information criterion:   386.79
+lmerka_random_slope_stim_sub <- lmer(Difference ~ Stimulation*Type*Choice + (Stimulation|Sub), 
+                          data = cathodal_dif, REML = T)
+lmerka_random_slope_stim_sub 
+anova(lmerka_random_slope_stim_sub)
+summary(lmerka_random_slope_stim_sub)
+isSingular(lmerka_random_slope_stim_sub)
 
 
 
-# NET TAK NELZYA POTERYALI SELECTED
+
+#model with  ransom slope by stimulationn, type and choice 
+lmerka_random_int_slope_all_slopes_sub <- lmer(Difference ~ 
+                                          Stimulation*Type*Choice + (Stimulation|Sub) +
+                                          (Type|Sub) + (Choice|Sub), 
+                                        data = cathodal_dif, REML = T)
+
+lmerka_random_int_slope_all_slopes_sub 
+anova(lmerka_random_int_slope_all_slopes_sub)
+summary(lmerka_random_int_slope_all_slopes_sub)
+isSingular(lmerka_random_int_slope_all_slopes_sub)
+
+#model with correlated random intercept and ransom slope by stimulationn, type and choice 
+lmerka_random_int_slope_all_sub <- 
+  lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub) +
+         (1 + Type|Sub) + (1 + Choice|Sub), data = cathodal_dif, REML = T)
+
+lmerka_random_int_slope_all_sub 
+anova(lmerka_random_int_slope_all_sub)
+summary(lmerka_random_int_slope_all_sub)
+isSingular(lmerka_random_int_slope_all_sub)
+allFit(lmerka_random_int_slope_all_sub)
+
+# lmerka_random_slope_all_in_one <- lmer(Difference ~ Stimulation*Type*Choice + 
+#                                          (1 + Stimulation*Type*Choice|Sub), 
+#                                      data = cathodal_dif, REML = T)
+
+lmerka_random_slope_all_in_one <- lmer(Difference ~ Stimulation*Type*Choice + 
+                                         (1 + Stimulation + Type + Choice|Sub), 
+                                       data = cathodal_dif, REML = T)
+isSingular(lmerka_random_slope_all_in_one)
+anova(lmerka_random_slope_all_in_one)
+summary(lmerka_random_slope_all_in_one)
+isSingular(lmerka_random_slope_all_in_one)
+
+allFit(lmerka_random_slope_all_in_one)
+optimizeLmer(Difference ~ Stimulation*Type*Choice + 
+               (1 + Stimulation + Type + Choice|Sub), 
+             data = cathodal_dif, REML = T, optimizer = 'bobyqa')
+
+
+
+View(cathodal_dif)
+
+model.matrix(lmerka_random_int_slope_stim_sub)
+
+#--Cathodal model selection----------
+
+#by AIC and LogLik?
+
+anova(lmerka_random_int_sub, lmerka_random_int_slope_sub, lmerka_random_slope_stim_sub, 
+      lmerka_random_int_slope_stim_sub,lmerka_random_int_slope_all_slopes_sub,
+      lmerka_random_int_slope_all_sub, lmerka_random_slope_all_in_one)
+#this comparisson are going through REML=F (ML instead of REML), which is not good for 
+#comparisons of model with random factros only. For random factors model comparison better to use 
+#REML
+
+# 
+# contourplot(Difference ~ Stimulation*Type*Choice | factor(Sub), data=cathodal_dif)
+# 
+# xyplot(Difference ~ Stimulation*Type | Stimulation*Type, data=cathodal_dif)
+
+# fft <- lme4::fortify(lmerka_dif)
+
+cAIC(lmerka_random_int_sub)
+cAIC(lmerka_random_int_slope_sub)
+cAIC(lmerka_random_slope_stim_sub)
+cAIC(lmerka_random_int_slope_stim_sub)
+cAIC(lmerka_random_int_slope_all_slopes_sub)
+cAIC(lmerka_random_int_slope_all_sub)
+cAIC(lmerka_random_slope_all_in_one)
+
+lmerControl(lmerka_random_int_slope_all_slopes_sub)
+
+str(lmerka_dif)
+
+#--anodal full data----------
+
+
+#successful anodal lme model on the full data------------------------------------------------------
+
+#if we are comparing models with same fixed factors and different random factors,
+#we should use REML (restricted max likelihood)
+
+#https://stats.stackexchange.com/questions/13166/rs-lmer-cheat-sheet
+
+
+
+#model with only random intercept for sub only (has huge Type 1 error rate)
+##why this does not work??? -- because of breakets???
+#https://stats.stackexchange.com/questions/58745/using-lmer-for-repeated-measures-linear-mixed-effect-model
+
+lmerka_random_int_sub_an <- lmer(Difference ~ Stimulation*Type*Choice + (1|Sub), 
+                              data = anodal_dif, REML = T)
+lmerka_random_int_sub_an 
+anova(lmerka_random_int_sub_an)
+summary(lmerka_random_int_sub_an)
+isSingular(lmerka_random_int_sub_an)
+
+#model with random intercept and slope for sub only
+lmerka_random_int_slope_sub_an <- lmer(Difference ~ Stimulation*Type*Choice + (1 + 1|Sub), 
+                                    data = anodal_dif, REML = T)
+lmerka_random_int_slope_sub_an 
+anova(lmerka_random_int_slope_sub_an)
+summary(lmerka_random_int_slope_sub_an)
+isSingular(lmerka_random_int_slope_sub_an)
+
+#model with correlated random intercept and ransom slope by stimulation 
+# Conditional Akaike information criterion:   212.05
+lmerka_random_int_slope_stim_sub_an <- lmer(Difference ~ 
+                                           Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                                         data = anodal_dif, REML = T)
+lmerka_random_int_slope_stim_sub_an 
+anova_lmerka_random_int_slope_stim_sub_an <- anova(lmerka_random_int_slope_stim_sub_an)
+#why do we need anova(lm)
+#https://stats.stackexchange.com/questions/115304/interpreting-output-from-anova-when-using-lm-as-input
+anova_lmerka_random_int_slope_stim_sub_an
+summary(lmerka_random_int_slope_stim_sub_an)
+isSingular(lmerka_random_int_slope_stim_sub_an)
+
+eta_sq(anova_lmerka_random_int_slope_stim_sub_an, partial = T,ci.lvl = NULL)
+
+
+
+#model with only random slope for stimulation / sub 
+# Conditional Akaike information criterion:   212.05
+lmerka_random_slope_stim_sub_an <- lmer(Difference ~ Stimulation*Type*Choice + (Stimulation|Sub), 
+                                     data = anodal_dif, REML = T)
+lmerka_random_slope_stim_sub_an 
+anova(lmerka_random_slope_stim_sub_an)
+summary(lmerka_random_slope_stim_sub_an)
+isSingular(lmerka_random_slope_stim_sub_an)
+
+
+
+
+#model with  ransom slope by stimulationn, type and choice 
+lmerka_random_int_slope_all_slopes_sub_an <- lmer(Difference ~ 
+                                                 Stimulation*Type*Choice + (Stimulation|Sub) +
+                                                 (Type|Sub) + (Choice|Sub), 
+                                               data = anodal_dif, REML = T)
+
+lmerka_random_int_slope_all_slopes_sub_an 
+anova(lmerka_random_int_slope_all_slopes_sub_an)
+summary(lmerka_random_int_slope_all_slopes_sub_an)
+isSingular(lmerka_random_int_slope_all_slopes_sub_an)
+
+#model with correlated random intercept and ransom slope by stimulationn, type and choice 
+lmerka_random_int_slope_all_sub_an <- 
+  lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub) +
+         (1 + Type|Sub) + (1 + Choice|Sub), data = anodal_dif, REML = T)
+
+lmerka_random_int_slope_all_sub_an 
+anova(lmerka_random_int_slope_all_sub_an)
+summary(lmerka_random_int_slope_all_sub_an)
+isSingular(lmerka_random_int_slope_all_sub_an)
+allFit(lmerka_random_int_slope_all_sub_an)
+
+
+
+lmerka_random_slope_all_in_one_an <- lmer(Difference ~ Stimulation*Type*Choice + 
+                                         (1 + Stimulation + Type + Choice|Sub), 
+                                       data = anodal_dif, REML = T)
+isSingular(lmerka_random_slope_all_in_one_an)
+anova(lmerka_random_slope_all_in_one_an)
+summary(lmerka_random_slope_all_in_one_an)
+isSingular(lmerka_random_slope_all_in_one_an)
+
+
+
+cAIC(lmerka_random_int_sub_an)
+cAIC(lmerka_random_int_slope_sub_an)
+cAIC(lmerka_random_slope_stim_sub_an)
+cAIC(lmerka_random_int_slope_stim_sub_an)
+cAIC(lmerka_random_int_slope_all_slopes_sub_an)
+cAIC(lmerka_random_int_slope_all_sub_an)
+cAIC(lmerka_random_slope_all_in_one_an)
+
+
+
+
+
+
+
+# model on the subset of data (only data involved in key comparisonsn)----------------------
+
+
 
 cathodal_dif_cropped <- cathodal_dif[Choice == "Rejected" | 
                                        Type == 'Difficult' ,]
@@ -684,8 +965,16 @@ cathodal_dif_cropped <- cathodal_dif[Choice == "Rejected" |
 View(cathodal_dif_cropped)
 
 
-lmerka_dif_cropped <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
-                           data = cathodal_dif_cropped, REML = F)
+lmerka_dif_cropped <- lmer(Difference ~ Stimulation*Choice + (1 + Stimulation|Sub), 
+                           data = cathodal_dif_cropped, REML = T)
+isSingular(lmerka_dif_cropped)
+lmerka_dif_cropped
+anova(lmerka_dif_cropped)
+summary(lmerka_dif_cropped)
+
+lmerka_dif_cropped_ML <- lmer(Difference ~ Stimulation*Type*Choice + (1 + Stimulation|Sub), 
+                           data = cathodal_dif_cropped, REML = T)
+isSingular(lmerka_dif_cropped_ML)
 lmerka_dif_cropped
 anova(lmerka_dif_cropped)
 
@@ -699,8 +988,10 @@ cathodal_dif_difficult <- cathodal_dif[Type == 'Difficult' ,]
 
 View(cathodal_dif_difficult)
 
+#isSingular = true, will be bad to converge
 lmerka_dif_cropped_difficult <- lmer(Difference ~ Stimulation*Choice + (1 + Stimulation|Sub), 
-                           data = cathodal_dif_difficult, REML = F)
+                           data = cathodal_dif_difficult, REML = T)
+isSingular(lmerka_dif_cropped_difficult)
 lmerka_dif_cropped_difficult
 anova(lmerka_dif_cropped_difficult)
 
